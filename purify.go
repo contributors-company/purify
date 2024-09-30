@@ -23,7 +23,7 @@ func RegisterValidator(name string, fn ValidatorFunc) {
 }
 
 // Основная функция для валидации на основе зарегистрированных валидаторов
-func validateStruct(s interface{}) *ValidateError {
+func ValidateStruct(s interface{}) *ValidateError {
     validationErrors := make(map[string][]string)
     var firstErrorMessage string
 
@@ -80,5 +80,3 @@ func validateStruct(s interface{}) *ValidateError {
 
     return nil // Возвращаем nil, если ошибок нет
 }
-
-func main() {}
