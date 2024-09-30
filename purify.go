@@ -78,5 +78,5 @@ func ValidateStruct(s interface{}) *ValidateError {
         }
     }
 
-    return nil // Возвращаем nil, если ошибок нет
+    return nil 
 }
