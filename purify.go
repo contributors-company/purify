@@ -50,7 +50,7 @@ func ValidateStruct(s interface{}) *ValidateError {
             jsonTag = fieldType.Name
         }
 
-        gformTag := fieldType.Tag.Get("gform")
+        gformTag := fieldType.Tag.Get("purify")
         if gformTag == "" {
             continue
         }
@@ -92,3 +92,4 @@ func parseRule(rule string) (string, string) {
     param := strings.TrimRight(rule[idx+1:], ")")
     return ruleName, param
 }
+
