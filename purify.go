@@ -1,8 +1,9 @@
 package purify
 
 import (
-    "reflect"
-    "strings"
+	"fmt"
+	"reflect"
+	"strings"
 )
 
 // Определение типа функции для валидатора
@@ -24,59 +25,70 @@ func RegisterValidator(name string, fn ValidatorFunc) {
 
 // Основная функция для валидации на основе зарегистрированных валидаторов
 func ValidateStruct(s interface{}) *ValidateError {
+    v := reflect.ValueOf(s)
+    if v.Kind() == reflect.Ptr {
+        v = v.Elem()
+    }
+
+    if v.Kind() != reflect.Struct {
+        return &ValidateError{
+            Errors:  map[string][]string{"": {"expected a struct"}},
+            Message: "expected a struct",
+        }
+    }
+
+    t := v.Type()
     validationErrors := make(map[string][]string)
     var firstErrorMessage string
-
-    // Используем reflect для работы с полями структуры
-    v := reflect.ValueOf(s)
-    t := reflect.TypeOf(s)
 
     for i := 0; i < v.NumField(); i++ {
         field := v.Field(i)
         fieldType := t.Field(i)
 
-        // Получаем значение тега json
         jsonTag := fieldType.Tag.Get("json")
-        if jsonTag == "" {
-            jsonTag = fieldType.Name // Если тега нет, используем имя поля
+        if jsonTag == "" || jsonTag == "-" {
+            jsonTag = fieldType.Name
         }
 
-        // Получаем значение тега gform для валидации
         gformTag := fieldType.Tag.Get("gform")
+        if gformTag == "" {
+            continue
+        }
 
-        // Если тег существует, обрабатываем его
-        if gformTag != "" {
-            fieldName := jsonTag // Используем имя из тега json
-            rules := strings.Split(gformTag, "|")
+        fieldName := jsonTag
+        rules := strings.Split(gformTag, "|")
+        fieldValueStr := fmt.Sprintf("%v", field.Interface())
 
-            for _, rule := range rules {
-                parts := strings.Split(rule, "(")
-                ruleName := parts[0]
-                var param string
-                if len(parts) > 1 {
-                    param = strings.TrimRight(parts[1], ")")
-                }
+        for _, rule := range rules {
+            ruleName, param := parseRule(rule)
 
-                // Ищем валидатор по имени
-                if validator, exists := validators[ruleName]; exists {
-                    if errMsg := validator(field.String(), param); errMsg != "" {
-                        validationErrors[fieldName] = append(validationErrors[fieldName], errMsg)
-                        if firstErrorMessage == "" {
-                            firstErrorMessage = errMsg // Запоминаем первое сообщение
-                        }
+            if validator, exists := validators[ruleName]; exists {
+                if errMsg := validator(fieldValueStr, param); errMsg != "" {
+                    validationErrors[fieldName] = append(validationErrors[fieldName], errMsg)
+                    if firstErrorMessage == "" {
+                        firstErrorMessage = errMsg
                     }
                 }
             }
         }
     }
 
-    // Если есть ошибки, возвращаем ValidateError
     if len(validationErrors) > 0 {
         return &ValidateError{
             Errors:  validationErrors,
-            Message: firstErrorMessage, // Первое сообщение для удобства
+            Message: firstErrorMessage,
         }
     }
 
-    return nil 
+    return nil
+}
+
+func parseRule(rule string) (string, string) {
+    idx := strings.Index(rule, "(")
+    if idx == -1 {
+        return rule, ""
+    }
+    ruleName := rule[:idx]
+    param := strings.TrimRight(rule[idx+1:], ")")
+    return ruleName, param
 }
